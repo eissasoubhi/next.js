@@ -258,6 +258,7 @@ export function createAppPageEntrypoint({
       interceptionRoutePatterns,
       deploymentId,
       clientAssetToken,
+      previewProps,
     } = prepareResult
 
     let { isOnDemandRevalidate } = prepareResult
@@ -805,6 +806,7 @@ export function createAppPageEntrypoint({
         (await routeModule.getIncrementalCache(
           req,
           nextConfig,
+          previewProps,
           prerenderManifest,
           isMinimalMode
         ))
@@ -891,7 +893,7 @@ export function createAppPageEntrypoint({
             crossOrigin: nextConfig.crossOrigin,
             trailingSlash: nextConfig.trailingSlash,
             images: nextConfig.images,
-            previewProps: prerenderManifest.preview,
+            previewProps,
             enableTainting: nextConfig.experimental.taint,
             reactMaxHeadersLength: nextConfig.reactMaxHeadersLength,
 
@@ -1238,6 +1240,7 @@ export function createAppPageEntrypoint({
                 nextConfig,
                 routeKind: RouteKind.APP_PAGE,
                 isFallback: true,
+                previewProps,
                 prerenderManifest,
                 isRoutePPREnabled,
                 responseGenerator: async () =>
@@ -1608,6 +1611,7 @@ export function createAppPageEntrypoint({
           isRoutePPREnabled,
           req,
           nextConfig,
+          previewProps,
           prerenderManifest,
           waitUntil: ctx.waitUntil,
           isMinimalMode,

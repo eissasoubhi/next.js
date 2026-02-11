@@ -57,6 +57,7 @@ import { Bundler } from '../../lib/bundler'
 import { resolveCacheHandlerPathToFilesystem } from '../../lib/format-dynamic-import-path'
 import { isAPIRoute } from '../../lib/is-api-route'
 import { InvariantError } from '../../shared/lib/invariant-error'
+import type { __ApiPreviewProps } from '../../server/api-utils'
 
 interface SharedRouteFields {
   /**
@@ -572,6 +573,7 @@ export async function handleBuildComplete({
   nextVersion,
   hasStatic404,
   hasStatic500,
+  previewProps,
   routesManifest,
   serverPropsPages,
   hasNodeMiddleware,
@@ -596,6 +598,7 @@ export async function handleBuildComplete({
   nextVersion: string
   hasStatic404: boolean
   hasStatic500: boolean
+  previewProps: __ApiPreviewProps
   bundler: Bundler
   staticPages: Set<string>
   hasNodeMiddleware: boolean
@@ -814,7 +817,7 @@ export async function handleBuildComplete({
                   {
                     type: 'header',
                     key: 'x-prerender-revalidate',
-                    value: prerenderManifest.preview.previewModeId,
+                    value: previewProps.previewModeId,
                   },
                 ],
               }
@@ -1078,7 +1081,7 @@ export async function handleBuildComplete({
                     {
                       type: 'header',
                       key: 'x-prerender-revalidate',
-                      value: prerenderManifest.preview.previewModeId,
+                      value: previewProps.previewModeId,
                     },
                   ],
                 }
@@ -1556,7 +1559,7 @@ export async function handleBuildComplete({
               isAppPage && srcRoute !== '/_not-found'
                 ? experimentalBypassFor
                 : undefined,
-            bypassToken: prerenderManifest.preview.previewModeId,
+            bypassToken: previewProps.previewModeId,
           },
         }
         // Classification describes the primary HTML or Route Handler body,
@@ -1828,7 +1831,7 @@ export async function handleBuildComplete({
             renderingMode,
             partialFallback: canEmitPartialFallback || undefined,
             bypassFor: isAppPage ? experimentalBypassFor : undefined,
-            bypassToken: prerenderManifest.preview.previewModeId,
+            bypassToken: previewProps.previewModeId,
           },
         }
 
@@ -2056,7 +2059,7 @@ export async function handleBuildComplete({
       {
         type: 'cookie',
         key: '__prerender_bypass',
-        value: prerenderManifest.preview.previewModeId,
+        value: previewProps.previewModeId,
       },
       {
         type: 'cookie',
