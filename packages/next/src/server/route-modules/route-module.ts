@@ -314,7 +314,9 @@ export abstract class RouteModule<
           manifest: ROUTES_MANIFEST,
           shouldCache: !this.isDev,
         }),
-        loadManifestFromRelativePath<PrerenderManifest>({
+        loadManifestFromRelativePath<
+          PrerenderManifest | PrerenderManifestRuntime
+        >({
           projectDir,
           distDir: this.distDir,
           manifest: !this.isDev
@@ -322,7 +324,14 @@ export abstract class RouteModule<
             : PRERENDER_MANIFEST,
           shouldCache: !this.isDev,
           handleMissing: true,
-        }),
+        }) ??
+          // The prerender manifest doesn't exist if no data was recorded during prerendering.
+          ({
+            version: 4,
+            routes: {},
+            dynamicRoutes: {},
+            notFoundRoutes: [],
+          } satisfies PrerenderManifestRuntime),
         loadManifestFromRelativePath<PreviewPropsManifest>({
           projectDir,
           distDir: this.distDir,
