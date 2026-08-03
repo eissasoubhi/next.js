@@ -1,5 +1,6 @@
 import type { NextConfigComplete } from '../../server/config-shared'
 import type { __ApiPreviewProps } from '../../server/api-utils'
+import type { TurbopackEntrypointsError } from './errors'
 import type {
   ExternalObject,
   RefCell,
@@ -331,10 +332,12 @@ export interface Project {
   featureUsage(): Promise<BuildFeatureUsage[]>
 
   entrypointsSubscribe(): AsyncIterableIterator<
-    TurbopackResult<RawEntrypoints | {}>
+    TurbopackResult<RawEntrypoints> | TurbopackEntrypointsError
   >
 
-  serverHmrEvents(): AsyncIterableIterator<TurbopackResult<NodeJsHmrUpdate>>
+  entrypoints(): Promise<TurbopackResult<RawEntrypoints>>
+
+  getServerHmrUpdate(): Promise<TurbopackResult<NodeJsHmrUpdate>>
 
   clientHmrEvents(
     identifier: string
