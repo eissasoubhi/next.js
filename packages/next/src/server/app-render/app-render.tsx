@@ -1179,9 +1179,8 @@ async function generateStagedDynamicFlightRenderResultNode(
 
       return dynamicStream
     },
-    () => {
-      stageController.advanceStage(RenderStage.Static)
-    },
+    () => stageController.advanceStage(RenderStage.PrefetchStatic),
+    () => stageController.advanceStage(RenderStage.Static),
     () => {
       // This is a separate task that doesn't advance a stage. It forces
       // draining the immediate queue so that the stale time iterable and vary
@@ -1191,9 +1190,7 @@ async function generateStagedDynamicFlightRenderResultNode(
         finishAccumulatingVaryParams(requestStore.varyParamsAccumulator)
       }
     },
-    () => {
-      stageController.advanceStage(RenderStage.Dynamic)
-    }
+    () => stageController.advanceStage(RenderStage.Dynamic)
   )
 
   return new FlightRenderResult(flightStream, {
@@ -1319,12 +1316,9 @@ async function stagedRenderWithoutCachesInDevNode(
         }
       )
     },
-    () => {
-      stageController.advanceStage(RenderStage.Static)
-    },
-    () => {
-      stageController.advanceStage(RenderStage.Dynamic)
-    }
+    () => stageController.advanceStage(RenderStage.PrefetchStatic),
+    () => stageController.advanceStage(RenderStage.Static),
+    () => stageController.advanceStage(RenderStage.Dynamic)
   )
 }
 
@@ -1332,6 +1326,7 @@ function getEnvironmentNameForStageWithoutCaches(stage: RenderStage) {
   switch (stage) {
     case RenderStage.Before:
     case RenderStage.ShellStatic:
+    case RenderStage.PrefetchStatic:
     case RenderStage.Static:
       return 'Prerender'
     case RenderStage.ShellRuntime:
@@ -1986,6 +1981,10 @@ async function finalRuntimeServerPrerender(
         collectChunk,
         streamState
       )
+    },
+    () => {
+      if (checkUnexpectedAbort()) return
+      finalStageController.advanceStage(RenderStage.PrefetchStatic)
     },
     () => {
       if (checkUnexpectedAbort()) return
@@ -3948,9 +3947,8 @@ async function renderToStream(
 
             return dynamicStream
           },
-          () => {
-            stageController.advanceStage(RenderStage.Static)
-          },
+          () => stageController.advanceStage(RenderStage.PrefetchStatic),
+          () => stageController.advanceStage(RenderStage.Static),
           () => {
             // This is a separate task that doesn't advance a stage. It forces
             // draining the immediate queue so that the stale time iterable and vary
@@ -3960,9 +3958,7 @@ async function renderToStream(
               finishAccumulatingVaryParams(requestStore.varyParamsAccumulator)
             }
           },
-          () => {
-            stageController.advanceStage(RenderStage.Dynamic)
-          }
+          () => stageController.advanceStage(RenderStage.Dynamic)
         )
 
         reactServerResult = new ReactServerResult(flightStream)
@@ -5382,6 +5378,7 @@ function getEnvironmentNameForStage(stage: RenderStage) {
   switch (stage) {
     case RenderStage.Before:
     case RenderStage.ShellStatic:
+    case RenderStage.PrefetchStatic:
     case RenderStage.Static:
       return 'Prerender'
     case RenderStage.ShellRuntime:
@@ -5604,6 +5601,7 @@ async function streamStagedRenderInDev({
         ),
       })
     },
+    () => checkCacheMissAndAdvance(RenderStage.PrefetchStatic),
     () => checkCacheMissAndAdvance(RenderStage.Static),
     () => checkReveal(RenderStage.Static),
 
@@ -5764,6 +5762,7 @@ async function renderWithWarmCachesForValidationInDev(
         validationAbortSignal
       )
     },
+    () => stageController.advanceStage(RenderStage.PrefetchStatic),
     () => stageController.advanceStage(RenderStage.Static),
     () => stageController.advanceStage(RenderStage.ShellRuntime),
     () => stageController.advanceStage(RenderStage.Runtime),
@@ -5896,6 +5895,7 @@ async function prerenderWithWarmCachesForStaticValidationInDev(
         collectChunk
       )
     },
+    () => stageController.advanceStage(RenderStage.PrefetchStatic),
     () => stageController.advanceStage(RenderStage.Static),
     () => stageController.advanceStage(RenderStage.ShellRuntime),
     () => stageController.advanceStage(RenderStage.Runtime),
@@ -7834,6 +7834,7 @@ async function renderWithRestartOnCacheMissInValidation(
       accumulatedChunksPromise.catch(() => {})
       return { accumulatedChunksPromise }
     },
+    () => advanceStageIfNoCacheMiss(RenderStage.PrefetchStatic),
     () => advanceStageIfNoCacheMiss(RenderStage.Static),
     () => advanceStageIfNoCacheMiss(RenderStage.ShellRuntime),
     () => advanceStageIfNoCacheMiss(RenderStage.Runtime),
@@ -7935,6 +7936,7 @@ async function renderWithRestartOnCacheMissInValidation(
         accumulatedChunksPromise,
       }
     },
+    () => finalStageController.advanceStage(RenderStage.PrefetchStatic),
     () => finalStageController.advanceStage(RenderStage.Static),
     () => finalStageController.advanceStage(RenderStage.ShellRuntime),
     () => finalStageController.advanceStage(RenderStage.Runtime),
@@ -9156,7 +9158,6 @@ async function prerenderToStream(
       }
 
       let debugEndTime: number | undefined = undefined
-      let didLinkDataUnblockNewContent = false
 
       await runInSequentialTasks(
         async () => {
@@ -9211,6 +9212,10 @@ async function prerenderToStream(
         },
         () => {
           if (checkUnexpectedAbort()) return
+          finalStageController.advanceStage(RenderStage.PrefetchStatic)
+        },
+        () => {
+          if (checkUnexpectedAbort()) return
           finalStageController.advanceStage(RenderStage.Static)
         },
         () => {
@@ -9220,12 +9225,11 @@ async function prerenderToStream(
           // which is scheduled in a (fast) immediate, so we do this in a separate task
           // (fast immediates will be drained at the end of the task, so in the next task we know we're done flushing)
 
-          // If new chunks were emitted in the static stage
-          // (after unblocking link data, i.e. static params)
-          // then the prerender uses link data.
+          // Check if new chunks were emitted in the static stage
+          // (after unblocking link data, or navigation())
           // NOTE: we must capture this *before* resolving staleTime/varyParams,
           // which always emit new static chunks.
-          didLinkDataUnblockNewContent =
+          const hasMoreContentThanShell =
             collectedChunksByStage[RenderStage.Static].length >
             collectedChunksByStage[RenderStage.ShellStatic].length
 
@@ -9244,7 +9248,7 @@ async function prerenderToStream(
           finishAccumulatingVaryParams(varyParamsAccumulator)
 
           shellByteLengthDeferred.resolve(
-            didLinkDataUnblockNewContent
+            hasMoreContentThanShell
               ? collectedChunksByStage[RenderStage.ShellStatic].reduce(
                   (acc, chunk) => acc + chunk.byteLength,
                   0
