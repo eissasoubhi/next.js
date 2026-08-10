@@ -94,12 +94,6 @@ enum AppRenderSpan {
   instantInsightsRunValidation = 'AppRender.instantInsights.runValidation',
 }
 
-enum DevRoutePreparationSpan {
-  // Preserve the span type used by request insights before route preparation
-  // moved from the matcher manager to the filesystem checker.
-  ensureRoute = 'DevRouteMatcherManager.ensureRoute',
-}
-
 enum DevBundlerServiceSpan {
   ensurePage = 'DevBundlerService.ensurePage',
 }
@@ -134,7 +128,6 @@ type SpanTypes =
   | `${RenderSpan}`
   | `${RouterSpan}`
   | `${AppRenderSpan}`
-  | `${DevRoutePreparationSpan}`
   | `${DevBundlerServiceSpan}`
   | `${NodeSpan}`
   | `${AppRouteRouteHandlersSpan}`
@@ -178,7 +171,6 @@ export {
   RenderSpan,
   RouterSpan,
   AppRenderSpan,
-  DevRoutePreparationSpan,
   DevBundlerServiceSpan,
   NodeSpan,
   AppRouteRouteHandlersSpan,
