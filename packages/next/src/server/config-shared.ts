@@ -1359,6 +1359,12 @@ export interface ExperimentalConfig {
   globalNotFound?: boolean
 
   /**
+   * Uses strict App Router matching semantics for parallel routes. Set this to
+   * `false` to temporarily restore the legacy matching behavior.
+   */
+  strictRouteMatching?: boolean
+
+  /**
    * @experimental Use the Rust port of the React compiler (Turbopack only).
    * Requires `reactCompiler` to be enabled.
    */
@@ -2297,6 +2303,7 @@ export const defaultConfig = Object.freeze({
     useCache: undefined,
     slowModuleDetection: undefined,
     globalNotFound: false,
+    strictRouteMatching: false,
     browserDebugInfoInTerminal: 'warn',
     lockDistDir: true,
     proxyClientMaxBodySize: 10_485_760, // 10MB

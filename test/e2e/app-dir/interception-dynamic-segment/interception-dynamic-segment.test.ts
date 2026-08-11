@@ -292,25 +292,43 @@ describe('interception-dynamic-segment', () => {
         expect(await browser.hasElementByCss('#named-host')).toBe(false)
       })
 
+      it('should send and render a real default for a newly entered slot owner', async () => {
+        const { act, browser } = await createBrowserWithRouterAct('/')
+
+        await act(async () => {
+          await navigate(browser, '/real-default')
+        })
+
+        expect(await browser.elementById('real-default-page').text()).toBe(
+          'Real default page'
+        )
+        expect(await browser.elementById('real-default-panel').text()).toBe(
+          'Real default panel'
+        )
+      })
+
       /**
        * Test Case 4: Has named slots but NO page.tsx (THE KEY BUG CASE)
        * Structure: @modal/(.)test-nested has @sidebar/page.tsx and
        * @panel/default.tsx, but NO page.tsx at root.
-       * Expected: Should work WITHOUT explicit default.tsx (auto null default)
-       * Reason: Legacy matching still injects a null children fallback inside
-       * the interception subtree. The real @panel default renders normally
-       * because it belongs to the newly entered subtree, not the host update.
+       * Expected: Should work WITHOUT an explicit children default.
+       * Reason: The intercepted layout only declares named slots, so strict
+       * matching should not synthesize a missing children slot. Its real
+       * @panel default still renders because this is a newly entered owner,
+       * not a retained sibling at the interception host.
        *
-       * This is the critical test! Without the fix:
-       * 1. Server returns 404 (default.js calls notFound())
-       * 2. Client sees !res.ok in fetch-server-response.ts:229
-       * 3. Client triggers doMpaNavigation() - full page reload
-       * 4. Navigation still succeeds via MPA, hiding the 404 bug
+       * The outer children subtree, including client state, remains mounted
+       * because its host slot is represented by the interception retain marker.
        *
        * With createRouterAct (no allowErrorStatusCodes), 404 fails the test.
        */
-      it('should navigate to /test-nested without 404 (auto null default)', async () => {
+      it('should omit undeclared children and preserve parent state', async () => {
         const { act, browser } = await createBrowserWithRouterAct('/')
+
+        await browser.elementById('retained-counter').click()
+        expect(await browser.elementById('retained-counter').text()).toBe(
+          'Retained count: 1'
+        )
 
         await act(async () => {
           await navigate(browser, '/test-nested')
@@ -323,10 +341,30 @@ describe('interception-dynamic-segment', () => {
           expect(modalContent).toContain('Intercepted panel default')
         })
 
+        const interceptedLayoutSlots = await browser.eval(`(() => {
+          const root = window.history.state?.__PRIVATE_NEXTJS_INTERNALS_TREE?.tree
+
+          function findSidebarOwner(node) {
+            if (!node) return null
+            if ('sidebar' in node[1]) return Object.keys(node[1]).sort()
+            for (const child of Object.values(node[1])) {
+              const result = findSidebarOwner(child)
+              if (result) return result
+            }
+            return null
+          }
+
+          return findSidebarOwner(root?.[1]?.modal)
+        })()`)
+        expect(interceptedLayoutSlots).toEqual(['panel', 'sidebar'])
+
         await retry(async () => {
           // Children slot should still show original page (/)
           const childrenContent = await browser.elementByCss('#children').text()
           expect(childrenContent).toContain('CHILDREN SLOT')
+          expect(await browser.elementById('retained-counter').text()).toBe(
+            'Retained count: 1'
+          )
         })
       })
 

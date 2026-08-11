@@ -816,6 +816,7 @@ pub fn get_entrypoints(
     app_dir: FileSystemPath,
     page_extensions: Vc<Vec<RcStr>>,
     is_global_not_found_enabled: Vc<bool>,
+    strict_route_matching: Vc<bool>,
     next_mode: Vc<NextMode>,
 ) -> Vc<Entrypoints> {
     directory_tree_to_entrypoints(
@@ -823,6 +824,7 @@ pub fn get_entrypoints(
         get_directory_tree(app_dir.clone(), page_extensions),
         get_global_metadata(app_dir, page_extensions),
         is_global_not_found_enabled,
+        strict_route_matching,
         next_mode,
         Default::default(),
         Default::default(),
@@ -851,6 +853,7 @@ fn directory_tree_to_entrypoints(
     directory_tree: Vc<DirectoryTree>,
     global_metadata: Vc<GlobalMetadata>,
     is_global_not_found_enabled: Vc<bool>,
+    strict_route_matching: Vc<bool>,
     next_mode: Vc<NextMode>,
     root_layouts: Vc<FileSystemPathVec>,
     root_params: Vc<RootParamVecOption>,
@@ -859,6 +862,7 @@ fn directory_tree_to_entrypoints(
         app_dir,
         global_metadata,
         is_global_not_found_enabled,
+        strict_route_matching,
         next_mode,
         rcstr!(""),
         directory_tree,
@@ -1021,6 +1025,29 @@ fn has_child_routes(directory_tree: &PlainDirectoryTree) -> bool {
     false
 }
 
+fn contains_renderable_route(directory_tree: &PlainDirectoryTree) -> bool {
+    directory_tree.modules.page.is_some()
+        || directory_tree.modules.default.is_some()
+        || directory_tree.modules.layout.is_some()
+        || directory_tree
+            .subdirectories
+            .iter()
+            .filter(|(name, _)| !is_parallel_route(name))
+            .any(|(_, subdirectory)| contains_renderable_route(subdirectory))
+}
+
+/// Returns whether the filesystem declares a children slot at this level. Route groups are
+/// transparent, while a named slot does not declare children for its parent layout.
+fn has_declared_children_slot(directory_tree: &PlainDirectoryTree) -> bool {
+    directory_tree.modules.page.is_some()
+        || directory_tree.modules.default.is_some()
+        || directory_tree
+            .subdirectories
+            .iter()
+            .filter(|(name, _)| !is_parallel_route(name))
+            .any(|(_, subdirectory)| contains_renderable_route(subdirectory))
+}
+
 async fn check_duplicate(
     duplicate: &mut FxHashMap<AppPath, AppPage>,
     loader_tree: &AppPageLoaderTree,
@@ -1057,6 +1084,7 @@ async fn directory_tree_to_loader_tree(
     app_page: AppPage,
     // the page this loader tree is constructed for
     for_app_path: AppPath,
+    strict_route_matching: Vc<bool>,
 ) -> Result<Vc<AppPageLoaderTreeOption>> {
     let plain_tree_vc = directory_tree.into_plain();
     let plain_tree = &*plain_tree_vc.await?;
@@ -1068,6 +1096,7 @@ async fn directory_tree_to_loader_tree(
         plain_tree,
         app_page,
         for_app_path,
+        *strict_route_matching.await?,
         AppDirModules::default(),
         Some(&plain_tree.url_tree),
     )
@@ -1148,6 +1177,7 @@ async fn directory_tree_to_loader_tree_internal(
     app_page: AppPage,
     // the page this loader tree is constructed for
     for_app_path: AppPath,
+    strict_route_matching: bool,
     mut parent_modules: AppDirModules,
     url_tree: Option<&UrlSegmentTree>,
 ) -> Result<Option<AppPageLoaderTree>> {
@@ -1292,6 +1322,7 @@ async fn directory_tree_to_loader_tree_internal(
             subdirectory,
             child_app_page.clone(),
             for_app_path.clone(),
+            strict_route_matching,
             parent_modules.clone(),
             child_url_tree,
         ))
@@ -1425,7 +1456,12 @@ async fn directory_tree_to_loader_tree_internal(
         } else {
             return Ok(None);
         }
-    } else if tree.parallel_routes.get("children").is_none() {
+    } else if tree.parallel_routes.get("children").is_none()
+        && (!strict_route_matching || has_declared_children_slot(directory_tree))
+    {
+        // `children` is only a slot when this level has ordinary route
+        // content. Named-only layouts can carry their parallel route state
+        // directly without a synthetic default child.
         let children = if is_interception_host {
             retained_route_tree(app_dir.clone(), global_metadata, app_page.clone()).await?
         } else {
@@ -1465,10 +1501,10 @@ async fn default_route_tree(
         } else {
             let contains_interception = for_app_path.contains_interception();
 
-            // Slot discovery can synthesize a children slot inside an
+            // Legacy slot discovery can synthesize a children slot inside an
             // interception subtree even when no ordinary route declares it.
-            // Keep the historical null fallback for that structural child;
-            // host-slot retention above only applies outside the new subtree.
+            // Strict route matching omits that structural child; this fallback
+            // remains for applications that explicitly disable the flag.
             let default_file = if contains_interception && slot_name == "children" {
                 "dist/client/components/builtin/default-null.js"
             } else {
@@ -1511,6 +1547,7 @@ async fn directory_tree_to_entrypoints_internal(
     app_dir: FileSystemPath,
     global_metadata: ResolvedVc<GlobalMetadata>,
     is_global_not_found_enabled: Vc<bool>,
+    strict_route_matching: Vc<bool>,
     next_mode: Vc<NextMode>,
     directory_name: RcStr,
     directory_tree: Vc<DirectoryTree>,
@@ -1523,6 +1560,7 @@ async fn directory_tree_to_entrypoints_internal(
         app_dir,
         global_metadata,
         is_global_not_found_enabled,
+        strict_route_matching,
         next_mode,
         directory_name,
         directory_tree,
@@ -1538,6 +1576,7 @@ async fn directory_tree_to_entrypoints_internal_untraced(
     app_dir: FileSystemPath,
     global_metadata: ResolvedVc<GlobalMetadata>,
     is_global_not_found_enabled: Vc<bool>,
+    strict_route_matching: Vc<bool>,
     next_mode: Vc<NextMode>,
     directory_name: RcStr,
     directory_tree: Vc<DirectoryTree>,
@@ -1593,6 +1632,7 @@ async fn directory_tree_to_entrypoints_internal_untraced(
             directory_tree_vc,
             app_page.clone(),
             app_path,
+            strict_route_matching,
         )
         .await?;
 
@@ -1871,6 +1911,7 @@ async fn directory_tree_to_entrypoints_internal_untraced(
                     app_dir.clone(),
                     *global_metadata,
                     is_global_not_found_enabled,
+                    strict_route_matching,
                     next_mode,
                     subdir_name.clone(),
                     *subdirectory,
@@ -1900,6 +1941,7 @@ async fn directory_tree_to_entrypoints_internal_untraced(
                                 directory_tree_vc,
                                 app_page.clone(),
                                 app_path,
+                                strict_route_matching,
                             );
                             loader_trees.push(loader_tree);
                         }
