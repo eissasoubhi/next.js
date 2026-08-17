@@ -2,7 +2,9 @@ import { nextTestSetup } from 'e2e-utils'
 import { waitFor } from 'next-test-utils'
 import type { Page, Request } from 'playwright'
 
-// Regression coverage for vercel/next.js#97329.
+// Regression coverage for vercel/next.js#97329. The failure mode is a
+// prefetch livelock, so cap repeated RSC requests per pathname rather than
+// asserting an exact request count.
 describe('redirect-prefetch-loop', () => {
   const { next, isNextDev } = nextTestSetup({
     files: __dirname,
