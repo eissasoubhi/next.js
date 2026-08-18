@@ -43,6 +43,8 @@ describe('redirect-prefetch-loop', () => {
       },
     })
 
+    // These links mount late on purpose, after live product prefetches have
+    // taught the client the optimistic /products/[...slug] route pattern.
     await browser.waitForElementByCss('a[href="/products/retired-1"]')
     await browser.eval(() => {
       window.scrollTo(0, document.body.scrollHeight)
