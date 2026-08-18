@@ -1,4 +1,4 @@
-name: Self-hosted PR
+name: GitHub-hosted PR
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: self-hosted-pr-${{ github.event.pull_request.number }}
+  group: github-hosted-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -18,33 +18,10 @@ jobs:
     if: >-
       github.actor == 'eissasoubhi' &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, ARM64, next]
-    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
 
     steps:
-      - name: Reclaim disk space
-        shell: bash
-        run: |
-          echo 'Disk before cleanup:'
-          df -h /
-
-          # Remove leftovers from interrupted jobs without deleting the runner itself.
-          rm -rf "$RUNNER_WORKSPACE/next.js/node_modules" || true
-          rm -rf "$RUNNER_WORKSPACE/next.js/.next" || true
-          rm -rf "$RUNNER_WORKSPACE/next.js/test/.next" || true
-          rm -rf "$HOME/.cache/ms-playwright" || true
-          find "$RUNNER_TEMP" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
-
-          echo 'Disk after cleanup:'
-          df -h /
-
-          available_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
-          minimum_kb=$((20 * 1024 * 1024))
-          if [ "$available_kb" -lt "$minimum_kb" ]; then
-            echo "Need at least 20 GiB free before building Next.js; currently $((available_kb / 1024 / 1024)) GiB."
-            exit 1
-          fi
-
       - name: Checkout PR
         uses: actions/checkout@v4
 
@@ -86,7 +63,7 @@ jobs:
 
       - name: Install Playwright Chromium
         shell: bash
-        run: pnpm exec playwright install chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run redirect prefetch regression test
         shell: bash
