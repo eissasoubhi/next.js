@@ -65,11 +65,21 @@ jobs:
         shell: bash
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run redirect prefetch regression test
+      - name: Run targeted regression test
         shell: bash
         run: |
+          ran_test=false
+
           if [ -d test/e2e/app-dir/redirect-prefetch-loop ]; then
+            ran_test=true
             pnpm test-start test/e2e/app-dir/redirect-prefetch-loop/
-          else
-            echo "No redirect-prefetch-loop test in this PR; skipping targeted regression suite."
+          fi
+
+          if [ -d test/production/app-dir/minifier-comma-assignment ]; then
+            ran_test=true
+            pnpm testonly test/production/app-dir/minifier-comma-assignment/
+          fi
+
+          if [ "$ran_test" = false ]; then
+            echo "No targeted regression fixture found in this PR; skipping targeted suite."
           fi
