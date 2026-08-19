@@ -54,3 +54,5 @@ jobs:
           git add packages/next/src/build/adapter/build-complete.ts
           git commit -m 'fix: avoid RSC twins for app route handlers'
           git push origin HEAD:fix/97564-route-handler-rsc-output
+
+# retrigger candidate application after confirming the regression is genuinely RED
