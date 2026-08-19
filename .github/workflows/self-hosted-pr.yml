@@ -53,6 +53,13 @@ jobs:
           NEXT_SKIP_NATIVE_POSTINSTALL: '1'
         run: pnpm install --frozen-lockfile
 
+      - name: Apply targeted candidate patch
+        shell: bash
+        run: |
+          if [ -f .github/ci/apply-97329-candidate.mjs ]; then
+            node .github/ci/apply-97329-candidate.mjs
+          fi
+
       - name: Build native bindings
         shell: bash
         run: pnpm run swc-build-native
