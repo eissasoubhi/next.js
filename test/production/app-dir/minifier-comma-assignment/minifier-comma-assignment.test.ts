@@ -1,5 +1,6 @@
 import { nextTestSetup } from 'e2e-utils'
 
+// Regression coverage for vercel/next.js#97517.
 describe('minifier comma assignment', () => {
   const { next } = nextTestSetup({
     files: __dirname,
