@@ -1,0 +1,66 @@
+name: Validation 97564
+
+on:
+  pull_request:
+    branches:
+      - validation/upstream-canary-20260819
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-97564-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: >-
+      github.actor == 'eissasoubhi' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable pnpm
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm --version
+          node --version
+
+      - name: Set up Rust
+        shell: bash
+        run: |
+          rustup show
+
+      - name: Install dependencies
+        shell: bash
+        env:
+          NEXT_SKIP_NATIVE_POSTINSTALL: '1'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native bindings
+        shell: bash
+        run: pnpm run build-native
+
+      - name: Build Next.js
+        shell: bash
+        run: pnpm build
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: pnpm exec playwright install chromium
+
+      - name: Run route-handler RSC regression test
+        shell: bash
+        run: pnpm test-start test/production/adapter-config/adapter-config-route-handler-rsc.test.ts
