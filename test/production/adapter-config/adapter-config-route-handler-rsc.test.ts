@@ -10,10 +10,16 @@ describe('adapter config route handler outputs', () => {
     const { outputs }: Parameters<NextAdapter['onBuildComplete']>[0] =
       await next.readJSON('build-complete.json')
 
-    // Route Handlers are server endpoints, not App Page RSC entrypoints.
-    const routeHandlerRscOutputs = outputs.appRoutes.filter((output) =>
-      output.pathname.endsWith('.rsc')
-    )
+    const routeHandlerPathnames = new Set([
+      '/edge-route',
+      '/isr-route',
+      '/node-route',
+    ])
+
+    const routeHandlerRscOutputs = outputs.appRoutes.filter((output) => {
+      const pathname = output.pathname.replace(/\.rsc$/, '')
+      return routeHandlerPathnames.has(pathname) && output.pathname.endsWith('.rsc')
+    })
 
     expect(routeHandlerRscOutputs).toEqual([])
   })
