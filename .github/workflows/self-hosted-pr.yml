@@ -56,9 +56,12 @@ jobs:
       - name: Apply targeted candidate patch
         shell: bash
         run: |
-          if [ -f .github/ci/apply-97329-candidate.mjs ]; then
-            node .github/ci/apply-97329-candidate.mjs
-          fi
+          shopt -s nullglob
+          patches=(.github/ci/apply-*-candidate.mjs)
+          for patch in "${patches[@]}"; do
+            echo "Applying $patch"
+            node "$patch"
+          done
 
       - name: Build native bindings
         shell: bash
