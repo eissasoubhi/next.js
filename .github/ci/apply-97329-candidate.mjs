@@ -1,3 +1,5 @@
+// Temporary internal-validation patch. Remove once the candidate is proven
+// and the source change is committed directly.
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const path = 'packages/next/src/client/components/segment-cache/cache.ts'
