@@ -10,6 +10,7 @@ describe('adapter config route handler outputs', () => {
     const { outputs }: Parameters<NextAdapter['onBuildComplete']>[0] =
       await next.readJSON('build-complete.json')
 
+    // Route Handlers are server endpoints, not App Page RSC entrypoints.
     const routeHandlerRscOutputs = outputs.appRoutes.filter((output) =>
       output.pathname.endsWith('.rsc')
     )
