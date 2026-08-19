@@ -11,9 +11,9 @@ describe('adapter config route handler outputs', () => {
       await next.readJSON('build-complete.json')
 
     const routeHandlerPathnames = new Set([
-      '/edge-route',
-      '/isr-route',
-      '/node-route',
+      '/docs/edge-route',
+      '/docs/isr-route',
+      '/docs/node-route',
     ])
 
     const routeHandlerRscOutputs = outputs.appRoutes.filter((output) => {
