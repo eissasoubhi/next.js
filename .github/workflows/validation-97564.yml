@@ -51,7 +51,7 @@ jobs:
 
       - name: Build native bindings
         shell: bash
-        run: pnpm run build-native
+        run: pnpm run swc-build-native
 
       - name: Build Next.js
         shell: bash
